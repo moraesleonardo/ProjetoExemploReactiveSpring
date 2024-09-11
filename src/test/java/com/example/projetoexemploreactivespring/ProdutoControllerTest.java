@@ -6,7 +6,9 @@ import com.example.projetoexemploreactivespring.repository.ProdutoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
@@ -18,25 +20,26 @@ import static org.mockito.Mockito.*;
 public class ProdutoControllerTest {
 
     @Autowired
-    private WebTestClient webClient;
+    private WebTestClient webTestClient; // Mantida apenas uma instância de WebTestClient
 
     @MockBean
     private ProdutoRepository produtoRepository;
 
     private Produto produto;
-    @Autowired
-    private WebTestClient webTestClient;
 
     @BeforeEach
     void setUp() {
-        produto = new Produto(1L, "Coca", 5.0); // Certifique-se de que este construtor exista
+        produto = new Produto(); // Usa o construtor padrão
+        produto.setId(1L); // Configura o ID usando o setter
+        produto.setNome("Coca");
+        produto.setPreco(5.0);
     }
 
     @Test
     public void testFindAll() {
         doReturn(Flux.just(produto)).when(produtoRepository).findAll();
 
-        webClient.get().uri("/api/produtos")
+        webTestClient.get().uri("/api/produtos")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBodyList(Produto.class)
@@ -47,27 +50,32 @@ public class ProdutoControllerTest {
     }
 
     @Test
-    public void testFindById(){
-       doReturn(Mono.just(produto)).when(produtoRepository).findById(1L);
-       webClient.get().uri("/api/produtos/1")
-               .exchange()
-               .expectStatus().isOk()
-               .expectBody(Produto.class)
-               .isEqualTo(produto);
+    public void testFindById() {
+        doReturn(Mono.just(produto)).when(produtoRepository).findById(1L);
 
-       verify(produtoRepository, times(1)).findById(1L);
+        webTestClient.get().uri("/produtos/1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(Produto.class)
+                .isEqualTo(produto);
+
+        verify(produtoRepository, times(1)).findById(1L);
     }
-
-
 
     @Test
     public void testSaveProduto() {
-        Produto newProduto = new Produto(null, "Pepsi", 4.0);
-        Produto produtoSalvo = new Produto(2L, "Pepsi", 4.0); // O produto salvo deve ter o mesmo nome e preço do que foi enviado, com o ID gerado
+        Produto newProduto = new Produto();
+        newProduto.setNome("Pepsi");
+        newProduto.setPreco(4.0);
+
+        Produto produtoSalvo = new Produto();
+        produtoSalvo.setId(2L);
+        produtoSalvo.setNome("Pepsi");
+        produtoSalvo.setPreco(4.0);
 
         doReturn(Mono.just(produtoSalvo)).when(produtoRepository).save(newProduto);
 
-        webTestClient.post().uri("/api/produtos")
+        webTestClient.post().uri("/produtos")
                 .bodyValue(newProduto)
                 .exchange()
                 .expectStatus().isOk()
@@ -78,14 +86,13 @@ public class ProdutoControllerTest {
     }
 
     @Test
-    public void testDeleteProduto(){
-        doReturn(Mono.just(produto)).when(produtoRepository).findById(1L);
+    public void testDeleteProduto() {
+        doReturn(Mono.empty()).when(produtoRepository).deleteById(1L);
 
-        webTestClient.delete().uri("/api/produtos/1")
+        webTestClient.delete().uri("/produtos/1")
                 .exchange()
                 .expectStatus().isOk();
 
         verify(produtoRepository, times(1)).deleteById(1L);
     }
-
 }
